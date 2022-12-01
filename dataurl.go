@@ -18,6 +18,8 @@ const (
 	EncodingBase64 = "base64"
 	// EncodingASCII is ascii encoding for the data url
 	EncodingASCII = "ascii"
+
+	EncodingUtf8 = "utf8"
 )
 
 func defaultMediaType() MediaType {
@@ -188,6 +190,10 @@ var base64DataReader encodedDataReader = func(s string) ([]byte, error) {
 	return []byte(data), nil
 }
 
+var utf8DataReader encodedDataReader = func(s string) ([]byte, error) {
+	return []byte(s), nil
+}
+
 type parser struct {
 	du                  *DataURL
 	l                   *lexer
@@ -232,6 +238,9 @@ func (p *parser) parse() error {
 		case itemBase64Enc:
 			p.du.Encoding = EncodingBase64
 			p.encodedDataReaderFn = base64DataReader
+		case itemUtf8Enc:
+			p.du.Encoding = EncodingUtf8
+			p.encodedDataReaderFn = utf8DataReader
 		case itemDataComma:
 			if p.encodedDataReaderFn == nil {
 				p.encodedDataReaderFn = asciiDataReader

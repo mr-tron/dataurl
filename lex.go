@@ -44,6 +44,7 @@ const (
 	itemParamVal
 
 	itemBase64Enc
+	itemUtf8Enc
 
 	itemDataComma
 	itemData
@@ -145,6 +146,7 @@ type lexer struct {
 	pos            int
 	width          int
 	seenBase64Item bool
+	seenUtf8Item   bool
 	items          chan item
 }
 
@@ -345,13 +347,19 @@ func lexAfterParamSemicolon(l *lexer) stateFn {
 	}
 }
 
-func lexBase64Enc(l *lexer) stateFn {
+func lexEnc(l *lexer) stateFn {
 	if l.pos > l.start {
-		if v := l.input[l.start:l.pos]; v != "base64" {
-			return l.errorf("expected base64, got %s", v)
+		v := l.input[l.start:l.pos]
+		if v == "base64" {
+			l.seenBase64Item = true
+			l.emit(itemBase64Enc)
+		} else if v == "utf8" {
+			l.seenUtf8Item = true
+			l.emit(itemUtf8Enc)
+		} else {
+			return l.errorf("expected base64 or utf8, got %s", v)
 		}
-		l.seenBase64Item = true
-		l.emit(itemBase64Enc)
+
 	}
 	return lexDataComma
 }
@@ -364,7 +372,7 @@ func lexInParamAttr(l *lexer) stateFn {
 			return lexParamAttr
 		case r == dataComma:
 			l.backup()
-			return lexBase64Enc
+			return lexEnc
 		case r == eof:
 			return l.errorf("unterminated parameter sequence")
 		case isTokenRune(r):
@@ -481,6 +489,9 @@ func lexDataComma(l *lexer) stateFn {
 	if l.seenBase64Item {
 		return lexBase64Data
 	}
+	if l.seenUtf8Item {
+		return lexUtf8Data
+	}
 	return lexData
 }
 
@@ -491,6 +502,24 @@ Loop:
 		case r == eof:
 			break Loop
 		case isURLCharRune(r):
+		default:
+			return l.errorf("invalid data character")
+		}
+	}
+	if l.pos > l.start {
+		l.emit(itemData)
+	}
+	l.emit(itemEOF)
+	return nil
+}
+
+func lexUtf8Data(l *lexer) stateFn {
+Loop:
+	for {
+		switch r := l.next(); {
+		case r == eof:
+			break Loop
+		case utf8.ValidRune(r):
 		default:
 			return l.errorf("invalid data character")
 		}

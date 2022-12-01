@@ -22,7 +22,7 @@ go get github.com/vincent-petithory/dataurl
 package main
 
 import (
-	"github.com/vincent-petithory/dataurl"
+	"github.com/mr-tron/dataurl"
 	"fmt"
 )
 
